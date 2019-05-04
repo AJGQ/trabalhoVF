@@ -5,12 +5,11 @@ Print nat.
 Print Z.
 Search Z.
 
-
 Inductive Obj : Type :=
-  | Num    : Z -> Obj
-  | Pls    : Obj
-  | Min    : Obj
-  | Mul    : Obj.
+  | Num   : Z -> Obj
+  | Pls   : Obj
+  | Min   : Obj
+  | Mul   : Obj.
 
 Print list.
 Print option.
