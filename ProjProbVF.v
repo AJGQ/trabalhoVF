@@ -3,7 +3,7 @@ Require Import List.
 
 Set Implicit Arguments.
 
-Open Scope Z_scope.
+Open Scope Z.
 
 (*Expressões sem variáveis*)
 (*Usar "Section" seja melhor*)
@@ -14,11 +14,10 @@ Inductive Op : Type :=
   | M   : Op
   | MM   : Op.
 
+
 Inductive aexp :=
   | Leaf : Z -> aexp
   | Node : aexp -> Op -> aexp -> aexp.
-
-Notation a := aexp.
 
 (*2*)
 
@@ -38,21 +37,17 @@ Notation "[ x ]" := (Leaf x).
 End TreeNotations.
 
 Import TreeNotations.
+Open Scope Z.
 
 (*3*)
-
-(*(2*3)+(3*(4-2))*)
 
 Eval compute in (2*3)+(3*(4-2)).
 
 Eval compute in aeval (([2];*;[3]);+;([3];*;([4];-;[2]))).
 
-(*(20-40)*(30+(1*1)) *)
-
 Eval compute in (20-40)*(30+(1*1)).
 
 Eval compute in aeval (([20];-;[40]);*;([30];+;([1];*;[1]))).
-
 (*4*)
 
 Inductive Exp : Type :=
@@ -63,35 +58,78 @@ Inductive Exp : Type :=
   | LP    : Exp
   | RP    : Exp.
 
-Module ListNotations.
-Notation "[ ]" := nil (format "[ ]") : list_scope.
-Notation "[ x ]" := (cons x nil) : list_scope.
-Notation "[ x ; y ; .. ; z ]" := (cons x (cons y .. (cons z nil) ..)) : list_scope.
-End ListNotations.
-
-Import ListNotations.
-
-Fixpoint abc (a : aexp) : list Exp :=
-   match a with
-    | Node L P R  => [LP] ++ abc L ++ [RP] ++ [Pls] ++ [LP] ++ abc R ++ [RP] 
-    | Node L M R  => [LP] ++ abc L ++ [RP] ++ [Min] ++ [LP] ++ abc R ++ [RP]  
-    | Node L MM R => [LP] ++ abc L ++ [RP] ++ [Mul] ++ [LP] ++ abc R ++ [RP] 
-    | Leaf n => [Num n] 
-end.
-
-Eval compute in abc (([2];*;[3]);+;([3];*;([4];-;[2]))).
+(* Module ListNotations. *)
+(* Notation "[ ]" := nil (format "[ ]") : list_scope. *)
+(* Notation "[ x ]" := (cons x nil) : list_scope. *)
+(* Notation "[ x ; y ; .. ; z ]" := (cons x (cons y .. (cons z nil) ..)) : list_scope. *)
+(* End ListNotations. *)
+(*  *)
+(* Import ListNotations. *)
+(*  *)
+(* Fixpoint abc (a : aexp) : list Exp := *)
+(*    match a with *)
+(*     | Node L P R  => [LP] ++ abc L ++ [RP] ++ [Pls] ++ [LP] ++ abc R ++ [RP]  *)
+(*     | Node L M R  => [LP] ++ abc L ++ [RP] ++ [Min] ++ [LP] ++ abc R ++ [RP]   *)
+(*     | Node L MM R => [LP] ++ abc L ++ [RP] ++ [Mul] ++ [LP] ++ abc R ++ [RP]  *)
+(*     | Leaf n => [Num n]  *)
+(* end. *)
+(* Eval compute in abc ([2];*;[3]). *)
+(*  *)
+(* Eval compute in abc (([2];*;[3]);+;([3];*;([4];-;[2]))). *)
 
 (* isto é equivalente a : ((2) * (3)) + ((3) *((4)-(2))) *) 
 
 Eval compute in ((2) * (3)) + ((3) *((4)-(2))).
 
 Fixpoint aevalR (a : aexp) (n : Z) : Prop :=
-  (aeval a) = n.
-
+  match a with
+  | Leaf z => z = n 
+  | Node a1 op a2 => 
+      match op with 
+      | P =>
+          exists (n1 n2: Z),  aevalR a1 n1 /\ aevalR a2 n2 /\ n1 + n2 = n
+      | M => 
+          exists (n1 n2: Z),  aevalR a1 n1 /\ aevalR a2 n2 /\ n1 - n2 = n
+      | MM => 
+          exists (n1 n2: Z),  aevalR a1 n1 /\ aevalR a2 n2 /\ n1 * n2 = n
+     end
+  end.
 (*5*)
 
 Theorem RelEqFun : forall (a : aexp) (n : Z),
                     (aevalR a n) <-> (aeval a = n).
+Proof.
+  induction a.
+  - red.
+     
+Qed.
+(*
+Proof.
+  intros.
+  red.
+  split.
+  - induction a.
+    + simpl; intros; assumption.
+    + induction o.
+      * simpl; intros.
+        exists (aeval a1).
+      * simpl; intros; admit.
+      * simpl; intros; admit.
+  - induction a.
+    + simpl; intros; assumption.
+    + induction o.
+      * simpl; intros.
+        exists (aeval a1);exists (aeval a2).
+        split.
+        -- let n:=(aeval a1) in IHa1.
+        -- split.
+           ++ admit.
+           ++ assumption.
+      * simpl; intros; admit.
+      * simpl; intros; admit.
+Qed.
+*)
+(* for th simple case where aevalR a n = (aeval a = n)
 Proof.
   induction a.
     - intros.
@@ -102,5 +140,4 @@ Proof.
       red.
       split;[simpl; intros;assumption| simpl; intros;assumption].
 Qed.
-
-
+*)
