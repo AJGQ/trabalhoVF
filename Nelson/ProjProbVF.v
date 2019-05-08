@@ -106,33 +106,25 @@ Proof.
       + intros. induction o.
           ++ simpl; simpl in H.
             destruct H. destruct H. destruct H. destruct H0.
-            destruct IHa1 with x. destruct IHa2 with x0;clear IHa1;clear IHa2.
+            destruct IHa1 with x. destruct IHa2 with x0; clear IHa1; clear IHa2.
             symmetry.
             rewrite H4.
               * rewrite H2.
-                ** symmetry. assumption.
-                ** assumption.
+                -- symmetry. assumption.
+                -- assumption.
               * assumption.
-          ++ simpl; simpl in H.
-            destruct H. destruct H. destruct H. destruct H0.
-            destruct IHa1 with x. destruct IHa2 with x0;clear IHa1;clear IHa2.
-            symmetry.
-            rewrite H4.
-              * rewrite H2.
-                ** symmetry. assumption.
-                ** assumption.
-              * assumption.
-          ++ simpl; simpl in H.
-            destruct H. destruct H. destruct H. destruct H0.
-            destruct IHa1 with x. destruct IHa2 with x0;clear IHa1;clear IHa2.
-            symmetry.
-            rewrite H4.
-              * rewrite H2.
-                ** symmetry. assumption.
-                ** assumption.
-              * assumption.
+          ++  simpl; simpl in H; destruct H; destruct H; destruct H; destruct H0.
+              destruct IHa1 with x; destruct IHa2 with x0; clear IHa1; clear IHa2.
+              symmetry; rewrite H4.
+                -- rewrite H2;[symmetry; assumption|assumption].
+                -- assumption. 
+          ++  simpl; simpl in H; destruct H; destruct H; destruct H; destruct H0.
+              destruct IHa1 with x; destruct IHa2 with x0; clear IHa1; clear IHa2.
+              symmetry;rewrite H4.
+                -- rewrite H2;[symmetry; assumption|assumption].
+                -- assumption.
         + intros. induction o.
-            * simpl;simpl in H.
+            * simpl; simpl in H.
               exists (aeval a1). exists (aeval a2).
               split.
                 **  apply IHa1.
@@ -141,22 +133,10 @@ Proof.
                     *** apply IHa2.
                         reflexivity.
                     *** assumption.
-            * simpl;simpl in H.
-              exists (aeval a1). exists (aeval a2).
-              split.
-                **  apply IHa1.
-                    reflexivity.
-                ** split.
-                    *** apply IHa2.
-                        reflexivity.
-                    *** assumption.
-            * simpl;simpl in H.
-              exists (aeval a1). exists (aeval a2).
-              split.
-                **  apply IHa1.
-                    reflexivity.
-                ** split.
-                    *** apply IHa2.
-                        reflexivity.
-                    *** assumption.
+            * simpl; simpl in H; exists (aeval a1). exists (aeval a2);split.
+                **  apply IHa1;reflexivity.
+                ** split;[apply IHa2; reflexivity | assumption].
+            * simpl; simpl in H; exists (aeval a1). exists (aeval a2);split.
+                **  apply IHa1;reflexivity.
+                ** split;[apply IHa2; reflexivity | assumption].
 Qed.
