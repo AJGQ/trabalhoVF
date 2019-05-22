@@ -1,12 +1,9 @@
 Require Import ZArith. 
 Require Import List.
+Open Scope Z_scope.
 
-Set Implicit Arguments.
+(****Expressoes sem Variaveis****)
 
-Open Scope Z.
-
-(*Expressões sem variáveis*)
-(*Usar "Section" seja melhor*)
 (*1*)
 
 Inductive Op : Type :=
@@ -51,37 +48,6 @@ Eval compute in aeval (([20];-;[40]);*;([30];+;([1];*;[1]))).
 
 (*4*)
 
-Inductive Exp : Type :=
-  | Num   : Z -> Exp
-  | Pls   : Exp
-  | Min   : Exp
-  | Mul   : Exp
-  | LP    : Exp
-  | RP    : Exp.
-
-Module ListNotations.
-Notation "[ ]" := nil (format "[ ]") : list_scope.
-Notation "[ x ]" := (cons x nil) : list_scope.
-Notation "[ x ; y ; .. ; z ]" := (cons x (cons y .. (cons z nil) ..)) : list_scope.
-End ListNotations.
-
-Import ListNotations.
-
-Fixpoint abc (a : aexp) : list Exp :=
-   match a with
-    | Node L P R  => [LP] ++ abc L ++ [RP] ++ [Pls] ++ [LP] ++ abc R ++ [RP] 
-    | Node L M R  => [LP] ++ abc L ++ [RP] ++ [Min] ++ [LP] ++ abc R ++ [RP]  
-    | Node L MM R => [LP] ++ abc L ++ [RP] ++ [Mul] ++ [LP] ++ abc R ++ [RP] 
-    | Leaf n => [Num n] 
-end.
-Eval compute in abc ([2];*;[3]).
-
-Eval compute in abc (([2];*;[3]);+;([3];*;([4];-;[2])))
-
-isto é equivalente a : ((2) * (3)) + ((3) *((4)-(2)))
-
-Eval compute in ((2) * (3)) + ((3) *((4)-(2))).
-
 Fixpoint aevalR (a : aexp) (n : Z) : Prop :=
   match a with
   | Leaf z => z = n 
@@ -104,7 +70,7 @@ Proof.
   - simpl. intros. reflexivity.
   - red. intros. induction o.
     + split.
-        simpl. intros. 
+      * simpl. intros. 
         destruct H as [n1 H]. 
         destruct H as [n2 H]. 
         destruct H. destruct H0. 
@@ -164,4 +130,92 @@ Proof.
         exists (aeval a1); exists (aeval a2).
         auto.
 Qed.
+
+(****Maquina de Stack****)
+Let stack     := list Z.
+
+Inductive Exp : Type :=
+  | Num   : Z -> Exp
+  | Pls   : Exp
+  | Min   : Exp
+  | Mul   : Exp.
+
+Let stack_exp := list Exp.
+
+Fixpoint SPush (n : Z) (st : stack) : stack :=
+  cons n st.
+
+Fixpoint SPlus (st : stack) : option stack :=
+  match st with
+    | nil => None
+    | cons a nil => None
+    | cons a (cons b c) => Some (cons (b+a) c)
+  end.
+
+Fixpoint SMinus (st : stack) : option stack :=
+  match st with
+    | nil => None
+    | cons a nil => None
+    | cons a (cons b c) => Some (cons (b-a) c)
+  end.
+
+
+Fixpoint SMult (st : stack) : option stack :=
+  match st with
+    | nil => None
+    | cons a nil => None
+    | cons a (cons b c) => Some (cons (b*a) c)
+  end.
+
+(*1*)
+Fixpoint execute (s : stack) (a : stack_exp) : option stack :=
+  match a with
+  | nil => Some s 
+  | cons (Num n) a' => execute (SPush n s) a'
+  | cons Pls a'     => 
+      match SPlus s with
+      | Some s' => execute s' a'
+      | None => None
+      end
+  | cons Min a'     => 
+      match SMinus s with
+      | Some s' => execute s' a'
+      | None => None
+      end
+  | cons Mul a'     => 
+      match SMult s with
+      | Some s' => execute s' a'
+      | None => None
+      end
+  end.
+
+(*2*)
+Let stack_machine : stack := nil. 
+Let expression    : stack_exp  := cons (Num 2) (
+                             cons (Num 3) (
+                             cons Mul ( 
+                             cons (Num 3) ( 
+                             cons (Num 4) ( 
+                             cons (Num 2) ( 
+                             cons Min ( 
+                             cons Mul ( 
+                             cons Pls ( 
+                             nil))))))))).
+Eval compute in execute stack_machine expression.
+
+(*3*)
+(*
+    Decidimos usar o option para que saibamos quando realmente deu problema ou    nao.
+    *)
+
+(****Compilador****)
+Fixpoint compile (a : aexp) : stack_exp := 
+  match a with
+  | Leaf z => cons (Num z) nil
+  | Node l P r => compile l ++ compile r ++ cons Pls nil
+  | Node l M r => compile l ++ compile r ++ cons Min nil
+  | Node l MM r => compile l ++ compile r ++ cons Mul nil
+  end.
+
+Eval compute in execute nil (compile (([2];*;[3]);+;([3];*;([4];-;[2])))).
 
