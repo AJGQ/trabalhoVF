@@ -142,17 +142,17 @@ Inductive Exp : Type :=
 
 Let stack_exp := list Exp.
 
-Fixpoint SPush (n : Z) (st : stack) : stack :=
+Let SPush (n : Z) (st : stack) : stack :=
   cons n st.
 
-Fixpoint SPlus (st : stack) : option stack :=
+Let SPlus (st : stack) : option stack :=
   match st with
     | nil => None
     | cons a nil => None
     | cons a (cons b c) => Some (cons (b+a) c)
   end.
 
-Fixpoint SMinus (st : stack) : option stack :=
+Let SMinus (st : stack) : option stack :=
   match st with
     | nil => None
     | cons a nil => None
@@ -160,7 +160,7 @@ Fixpoint SMinus (st : stack) : option stack :=
   end.
 
 
-Fixpoint SMult (st : stack) : option stack :=
+Let SMult (st : stack) : option stack :=
   match st with
     | nil => None
     | cons a nil => None
@@ -219,3 +219,152 @@ Fixpoint compile (a : aexp) : stack_exp :=
 
 Eval compute in execute nil (compile (([2];*;[3]);+;([3];*;([4];-;[2])))).
 
+Let unSome (A : Type) (op : option A) (a : A) : A  := 
+  match op with
+  | Some a' => a'
+  | None    => a
+  end.
+(*
+Lemma Dinamic_Execute_aux (e : Exp) (se : stack_exp) (st st1 : stack) :
+    execute st (e :: nil) = Some st1 ->
+    execute st (e :: se) = execute st1 se.
+Proof.
+  intros.
+  induction e.
+  - simpl. 
+    inversion H.
+    reflexivity.
+  - induction st.
+    + inversion H.
+    + induction st.
+      * inversion H.
+      * simpl. 
+        inversion H.
+        reflexivity.
+  - induction st.
+    + inversion H.
+    + induction st.
+      * inversion H.
+      * simpl. 
+        inversion H.
+        reflexivity.
+  - induction st.
+    + inversion H.
+    + induction st.
+      * inversion H.
+      * simpl. 
+        inversion H.
+        reflexivity.
+Qed.  
+*)
+Lemma Dinamic_Execute (se1 se2 : stack_exp) (st1 st2 : stack) :
+  forall (st : stack),
+    execute st se1 = Some st1 -> 
+    execute st1 se2 = Some st2 -> 
+    execute st (se1 ++ se2) = Some st2.
+Proof.
+  induction se1.
+  - simpl. intros. 
+    inversion H.
+    assumption.
+  - induction a.
+    + simpl.
+      intros.
+      apply (IHse1 (SPush z st)).
+      assumption. assumption.
+    + induction st.
+      * simpl. intros. inversion H.
+      * induction st.
+        -- simpl. intros. inversion H.
+        -- clear IHst0. simpl. intros.
+           apply (IHse1 (a0 + a :: st)).
+           assumption. assumption.
+    + induction st.
+      * simpl. intros. inversion H.
+      * induction st.
+        -- simpl. intros. inversion H.
+        -- clear IHst0. simpl. intros.
+           apply (IHse1 (a0 - a :: st)).
+           assumption. assumption.
+    + induction st.
+      * simpl. intros. inversion H.
+      * induction st.
+        -- simpl. intros. inversion H.
+        -- clear IHst0. simpl. intros.
+           apply (IHse1 (a0 * a :: st)).
+           assumption. assumption.
+Qed.
+
+Search list.
+(*
+Lemma Dinamic_Execute (se1 se2 : stack_exp) (st1 st2 : stack) :
+  forall (st : stack),
+    execute st se1 = Some st1 -> 
+    execute st1 se2 = Some st2 -> 
+    execute st (se1 ++ se2) = Some st2.
+*)
+Lemma Atomic_Union (se1 se2 : stack_exp) (st1 st2 : stack) :
+    execute nil se1 = Some st1 ->
+    execute nil se2 = Some st2 ->
+    execute nil (se1 ++ se2) = Some (st2 ++ st1).
+Proof.
+  intros.
+  apply (Dinamic_Execute se1 se2 st1 (st2 ++ st1) nil).
+  - assumption.
+  - induction se2.
+    + inversion H0. simpl. reflexivity.
+    + induction a.
+      * induction st2.
+        -- rewrite <- (app_nil_end st2). assumption.
+        -- 
+  (*
+  intros.
+  apply (Dinamic_Execute se1 se2 st1 (st2 ++ st1) nil).
+  - assumption.
+  - induction se2.
+    + inversion H0. simpl. reflexivity.
+    + induction se1.
+      * inversion H.
+        rewrite <- (app_nil_end st2).
+        assumption.
+      * induction st1.
+        -- rewrite <- (app_nil_end st2).
+           assumption.
+        --  
+           *)
+Qed.
+
+Theorem Correction : forall (a : aexp),
+                     (execute nil (compile a) = Some (cons (aeval a) nil)) .
+Proof.
+  intros.
+  induction a.
+  - simpl. reflexivity.
+  - induction o.
+    + simpl execute.
+Qed.
+
+(*
+Theorem Correction : forall (a : aexp), exists (z1 z2 : option stack) , z1 = execute nil (compile a) -> z2 = Some (cons (aeval a) nil) -> z1 = z2.
+Proof.
+induction a.
+- simpl.
+  exists (Some (z :: nil)).
+  exists (Some (z :: nil)).
+  intros.
+  reflexivity.
+- induction o.
+  + exists (execute nil (compile (a1; + ; a2))).
+    exists (execute nil (compile (a1; + ; a2))).
+    intros.
+    reflexivity.
+  + exists (execute nil (compile (a1; - ; a2))).
+    exists (execute nil (compile (a1; - ; a2))).
+    intros.
+    reflexivity.
+  + exists (execute nil (compile (a1; * ; a2))).
+    exists (execute nil (compile (a1; * ; a2))).
+    intros.
+    reflexivity.
+Qed.
+*)
