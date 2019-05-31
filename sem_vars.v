@@ -1,5 +1,6 @@
 Require Import ZArith. 
 Require Import List.
+Require Import Classical_Prop.
 Open Scope Z_scope.
 
 (****Expressoes sem Variaveis****)
@@ -216,6 +217,39 @@ Fixpoint compile (a : aexp) : stack_exp :=
   | Node l M r => compile l ++ compile r ++ cons Min nil
   | Node l MM r => compile l ++ compile r ++ cons Mul nil
   end.
+(*
+Fixpoint addSome
+
+Compute Some(1) + Some (2).
+
+Lemma ABC: forall (a1 a2 : aexp), 
+  Some (aeval (a1;+;a2)::nil) = Some (aeval a1 + aeval a2 :: nil).
+Proof.
+  intros.
+  induction a1.
+  - simpl.
+    reflexivity.
+  - induction o.
+    + simpl.
+      reflexivity.
+    + simpl.
+      reflexivity.
+    + simpl.
+      reflexivity.
+Qed.
+Theorem Correction : forall (a: aexp) , 
+  execute nil (compile a) = Some (aeval a :: nil).
+Proof.
+  intros.
+  induction a.
+  - simpl.
+    cbv.
+    reflexivity.
+  - induction o.
+    + simpl. .
+
+
+  *)
 
 Eval compute in execute nil (compile (([2];*;[3]);+;([3];*;([4];-;[2])))).
 
@@ -257,100 +291,100 @@ Proof.
         reflexivity.
 Qed.  
 *)
-Lemma Dinamic_Execute (se1 se2 : stack_exp) (st1 st2 : stack) :
-  forall (st : stack),
-    execute st se1 = Some st1 -> 
-    execute st1 se2 = Some st2 -> 
-    execute st (se1 ++ se2) = Some st2.
+
+Lemma Dinamic_Execute (z : Z) (se1 se2 : stack_exp):
+  forall (st st1 : stack),
+    execute st se1 = Some (z :: nil) -> 
+    execute (st ++ st1) (se1 ++ se2) = execute (z :: st1) se2.
 Proof.
   induction se1.
-  - simpl. intros. 
+  - simpl.
+    intros.
     inversion H.
-    assumption.
+    simpl.
+    reflexivity.
   - induction a.
     + simpl.
       intros.
-      apply (IHse1 (SPush z st)).
-      assumption. assumption.
-    + induction st.
-      * simpl. intros. inversion H.
-      * induction st.
-        -- simpl. intros. inversion H.
-        -- clear IHst0. simpl. intros.
-           apply (IHse1 (a0 + a :: st)).
-           assumption. assumption.
-    + induction st.
-      * simpl. intros. inversion H.
-      * induction st.
-        -- simpl. intros. inversion H.
-        -- clear IHst0. simpl. intros.
-           apply (IHse1 (a0 - a :: st)).
-           assumption. assumption.
-    + induction st.
-      * simpl. intros. inversion H.
-      * induction st.
-        -- simpl. intros. inversion H.
-        -- clear IHst0. simpl. intros.
-           apply (IHse1 (a0 * a :: st)).
-           assumption. assumption.
-Qed.
-
-Search list.
-(*
-Lemma Dinamic_Execute (se1 se2 : stack_exp) (st1 st2 : stack) :
-  forall (st : stack),
-    execute st se1 = Some st1 -> 
-    execute st1 se2 = Some st2 -> 
-    execute st (se1 ++ se2) = Some st2.
-*)
-Lemma Atomic_Union: (*(se1 se2 : stack_exp) (st1 st2 : stack) :*)
-  forall (se1 : stack_exp) (st1 : stack) 
-         (se2 : stack_exp) (st2 : stack),
-    execute nil se1 = Some st1 ->
-    execute nil se2 = Some st2 ->
-    execute nil (se1 ++ se2) = Some (st2 ++ st1).
-Proof.
-(* apply (Dinamic_Execute se1 se2 st1 (st2 ++ st1) nil).*)
-  - induction se1.
-    + intros. 
-      simpl.
-      simpl in H.
-      inversion H.
-      rewrite <- (app_nil_end st2).
+      apply (IHse1 (z0 :: st) st1).
       assumption.
-    + induction a.
-      * intros. simpl. 
+    + induction st.
+      * intros.
         simpl in H.
-        apply (Dinamic_Execute se1 se2 nil (st2 ++ st1) (SPush z nil)).
-        .
-         induction st2.
-        -- simpl. apply IHse2. assumption.
-        -- 
-  (*
-  intros.
-  apply (Dinamic_Execute se1 se2 st1 (st2 ++ st1) nil).
-  - assumption.
-  - induction se2.
-    + inversion H0. simpl. reflexivity.
-    + induction se1.
-      * inversion H.
-        rewrite <- (app_nil_end st2).
-        assumption.
-      * induction st1.
-        -- rewrite <- (app_nil_end st2).
+        inversion H.
+      * induction st.
+        -- intros.
+           simpl in H.
+           inversion H.
+        -- simpl.
+           intros.
+           apply (IHse1 ((a0 + a) :: st) st1).
            assumption.
-        --  
-           *)
-Qed.
-
+    + induction st.
+      * intros.
+        simpl in H.
+        inversion H.
+      * induction st.
+        -- intros.
+           simpl in H.
+           inversion H.
+        -- simpl.
+           intros.
+           apply (IHse1 ((a0 - a) :: st) st1).
+           assumption.
+    + induction st.
+      * intros.
+        simpl in H.
+        inversion H.
+      * induction st.
+        -- intros.
+           simpl in H.
+           inversion H.
+        -- simpl.
+           intros.
+           apply (IHse1 ((a0 * a) :: st) st1).
+           assumption.
+Qed. 
+(*
+Lemma Dinamic_Execute (z : Z) (se1 se2 : stack_exp):
+  forall (st st1 : stack),
+    execute st se1 = Some (z :: nil) -> 
+    execute (st ++ st1) (se1 ++ se2) = execute (z :: st1) se2.
+      *)
 Theorem Correction : forall (a : aexp),
-                     (execute nil (compile a) = Some (cons (aeval a) nil)) .
+                     (execute nil (compile a) = Some (cons (aeval a) nil)).
 Proof.
   intros.
   induction a.
   - simpl. reflexivity.
   - induction o.
-    + simpl execute.
+    + simpl. 
+      assert (H := ((Dinamic_Execute (aeval a1) (compile a1) (compile a2 ++ Pls :: nil) nil nil) IHa1)).
+      assert (H1 := ((Dinamic_Execute (aeval a2) (compile a2) (Pls :: nil) nil (aeval a1 :: nil)) IHa2)).
+      rewrite <- (app_nil_end nil) in H.
+      simpl in H1.
+      rewrite H.
+      rewrite H1.
+      simpl.
+      reflexivity.
+    + simpl. 
+      assert (H := ((Dinamic_Execute (aeval a1) (compile a1) (compile a2 ++ Min :: nil) nil nil) IHa1)).
+      assert (H1 := ((Dinamic_Execute (aeval a2) (compile a2) (Min :: nil) nil (aeval a1 :: nil)) IHa2)).
+      rewrite <- (app_nil_end nil) in H.
+      simpl in H1.
+      rewrite H.
+      rewrite H1.
+      simpl.
+      reflexivity.
+    + simpl. 
+      assert (H := ((Dinamic_Execute (aeval a1) (compile a1) (compile a2 ++ Mul :: nil) nil nil) IHa1)).
+      assert (H1 := ((Dinamic_Execute (aeval a2) (compile a2) (Mul :: nil) nil (aeval a1 :: nil)) IHa2)).
+      rewrite <- (app_nil_end nil) in H.
+      simpl in H1.
+      rewrite H.
+      rewrite H1.
+      simpl.
+      reflexivity.
 Qed.
 
 (*
