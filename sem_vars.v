@@ -303,19 +303,28 @@ Lemma Dinamic_Execute (se1 se2 : stack_exp) (st1 st2 : stack) :
     execute st1 se2 = Some st2 -> 
     execute st (se1 ++ se2) = Some st2.
 *)
-Lemma Atomic_Union (se1 se2 : stack_exp) (st1 st2 : stack) :
+Lemma Atomic_Union: (*(se1 se2 : stack_exp) (st1 st2 : stack) :*)
+  forall (se1 : stack_exp) (st1 : stack) 
+         (se2 : stack_exp) (st2 : stack),
     execute nil se1 = Some st1 ->
     execute nil se2 = Some st2 ->
     execute nil (se1 ++ se2) = Some (st2 ++ st1).
 Proof.
-  intros.
-  apply (Dinamic_Execute se1 se2 st1 (st2 ++ st1) nil).
-  - assumption.
-  - induction se2.
-    + inversion H0. simpl. reflexivity.
+(* apply (Dinamic_Execute se1 se2 st1 (st2 ++ st1) nil).*)
+  - induction se1.
+    + intros. 
+      simpl.
+      simpl in H.
+      inversion H.
+      rewrite <- (app_nil_end st2).
+      assumption.
     + induction a.
-      * induction st2.
-        -- rewrite <- (app_nil_end st2). assumption.
+      * intros. simpl. 
+        simpl in H.
+        apply (Dinamic_Execute se1 se2 nil (st2 ++ st1) (SPush z nil)).
+        .
+         induction st2.
+        -- simpl. apply IHse2. assumption.
         -- 
   (*
   intros.
