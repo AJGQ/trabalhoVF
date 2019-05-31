@@ -1,15 +1,16 @@
 Require Import ZArith. 
 Require Import List.
 Require Import String.
+Require Import Ascii.
+
 Open Scope Z_scope.
-Open Scope string_scope.
+Delimit Scope string_scope with string.
+Local Open Scope string_scope.
 Set Implicit Arguments.
 
 (****Expressoes sem Variaveis****)
 Print string.
 (*1*)
-
-
 
 Inductive Op : Type :=
   | P   : Op
@@ -18,7 +19,7 @@ Inductive Op : Type :=
 
 Let var := string.
 Inductive El : Type :=
-  | Elem  : Z -> El
+  | Num  : Z -> El
   | Var   : var -> El.
 
 Inductive aexp :=
@@ -27,24 +28,19 @@ Inductive aexp :=
 
 Let init : var -> Z := fun _ => 0.
 
-Fixpoint update (s : var -> Z) (v : var) (z : Z)  : var -> Z :=
-  fun x => if (String:eqb x v) then z else s x.
+Let update (s : var -> Z) (v : var) (z : Z) : var -> Z :=
+  fun x => if (string_dec x v)%string then z else s x.
 (*2*)
 
-Eval compute in (Pair 1 2).
+Eval compute in "123".
+Eval compute in init "x".
+Eval compute in update init "x" 3 "x".
+Eval compute in update init "x" 3 "y".
 
-Fixpoint find (v : var) (s : state) : Z :=
-  match s with
-  | nil => 0
-  | cons (Pair _ z) _ => z
-  end.
-
-Eval compute in find 1%nat (cons (Pair var Z 0%nat (-1)) nil).
-
-Fixpoint aeval (a : aexp) (s : state) : Z :=
+Fixpoint aeval (a : aexp) (s : var -> Z) : Z :=
     match a with
-    | Leaf (Elem n) => n
-    | Leaf (Var n) => Z.of_nat n
+    | Leaf (Num n) => n
+    | Leaf (Var n) => s n
     | Node L P R  => aeval L s + aeval R s
     | Node L M R  => aeval L s - aeval R s
     | Node L MM R => aeval L s * aeval R s
@@ -54,7 +50,8 @@ Module TreeNotations.
 Notation "( L ; + ; R )" := (Node L P R).
 Notation "( L ; - ; R )" := (Node L M R).
 Notation "( L ; * ; R )" := (Node L MM R).
-Notation "[ x ]" := (Leaf x).
+Notation "[ x ]" := (Leaf (Num x)).
+Notation "[[ x ]]" := (Leaf (Var x)).
 End TreeNotations.
 
 Import TreeNotations.
@@ -64,42 +61,48 @@ Open Scope Z.
 
 Eval compute in (2*3)+(3*(4-2)).
 
-Eval compute in aeval (([2];*;[3]);+;([3];*;([4];-;[2]))).
+Eval compute in aeval (([2];*;[3]);+;([3];*;([4];-;[2]))) init.
 
 Eval compute in (20-40)*(30+(1*1)).
 
-Eval compute in aeval (([20];-;[40]);*;([30];+;([1];*;[1]))).
+Eval compute in aeval (([20];-;[40]);*;([30];+;([1];*;[1]))) init.
+
+Eval compute in aeval (([20];-;[40]);*;([30];+;([["x"]];*;[["x"]]))) (update init "x" 1).
 
 (*4*)
 
-Fixpoint aevalR (a : aexp) (n : Z) : Prop :=
+Fixpoint aevalR (a : aexp) (n : Z) (s : var -> Z) : Prop :=
   match a with
-  | Leaf z => z = n 
+  | Leaf (Num z) => z = n 
+  | Leaf (Var v)  => s v = n 
   | Node a1 op a2 => 
       match op with 
       | P =>
-          exists (n1 n2: Z),  aevalR a1 n1 /\ aevalR a2 n2 /\ n1 + n2 = n
+          exists (n1 n2: Z),  aevalR a1 n1 s /\ aevalR a2 n2 s /\ n1 + n2 = n
       | M => 
-          exists (n1 n2: Z),  aevalR a1 n1 /\ aevalR a2 n2 /\ n1 - n2 = n
+          exists (n1 n2: Z),  aevalR a1 n1 s /\ aevalR a2 n2 s /\ n1 - n2 = n
       | MM => 
-          exists (n1 n2: Z),  aevalR a1 n1 /\ aevalR a2 n2 /\ n1 * n2 = n
+          exists (n1 n2: Z),  aevalR a1 n1 s /\ aevalR a2 n2 s /\ n1 * n2 = n
      end
   end.
 (*5*)
 
-Theorem RelEqFun : forall (a : aexp) (n : Z),
-                    (aevalR a n) <-> (aeval a = n).
+Theorem RelEqFun : forall (a : aexp) (n : Z) (s : var -> Z),
+                    (aevalR a n s) <-> (aeval a s = n).
 Proof.
   induction a.
-  - simpl. intros. reflexivity.
+  - intros. 
+    induction e.
+    + simpl. reflexivity.
+    + simpl. reflexivity.
   - red. intros. induction o.
     + split.
-        simpl. intros. 
+      * simpl. intros. 
         destruct H as [n1 H]. 
         destruct H as [n2 H]. 
         destruct H. destruct H0. 
-        assert (IHa1 := (IHa1 n1)).
-        assert (IHa2 := (IHa2 n2)).
+        assert (IHa1 := (IHa1 n1 s)).
+        assert (IHa2 := (IHa2 n2 s)).
         unfold iff in IHa1; destruct IHa1; clear H3.
         unfold iff in IHa2; destruct IHa2; clear H4.
         assert (H5 := (H2 H)).
@@ -107,19 +110,19 @@ Proof.
         rewrite H5; rewrite H6.
         assumption.
       * simpl. intros.
-        assert (IHa1 := (IHa1 (aeval a1))).
-        assert (IHa2 := (IHa2 (aeval a2))).
+        assert (IHa1 := (IHa1 (aeval a1 s) s)).
+        assert (IHa2 := (IHa2 (aeval a2 s) s)).
         unfold iff in IHa1; destruct IHa1; clear H0.
         unfold iff in IHa2. destruct IHa2. clear H0.
-        exists (aeval a1); exists (aeval a2).
+        exists (aeval a1 s); exists (aeval a2 s).
         auto.
     + split.
       * simpl. intros. 
         destruct H as [n1 H]. 
         destruct H as [n2 H]. 
         destruct H. destruct H0. 
-        assert (IHa1 := (IHa1 n1)).
-        assert (IHa2 := (IHa2 n2)).
+        assert (IHa1 := (IHa1 n1 s)).
+        assert (IHa2 := (IHa2 n2 s)).
         unfold iff in IHa1; destruct IHa1; clear H3.
         unfold iff in IHa2; destruct IHa2; clear H4.
         assert (H5 := (H2 H)).
@@ -127,19 +130,19 @@ Proof.
         rewrite H5; rewrite H6.
         assumption.
       * simpl. intros.
-        assert (IHa1 := (IHa1 (aeval a1))).
-        assert (IHa2 := (IHa2 (aeval a2))).
+        assert (IHa1 := (IHa1 (aeval a1 s) s)).
+        assert (IHa2 := (IHa2 (aeval a2 s) s)).
         unfold iff in IHa1; destruct IHa1; clear H0.
         unfold iff in IHa2. destruct IHa2. clear H0.
-        exists (aeval a1); exists (aeval a2).
+        exists (aeval a1 s); exists (aeval a2 s).
         auto.
     + split.
       * simpl. intros. 
         destruct H as [n1 H]. 
         destruct H as [n2 H]. 
         destruct H. destruct H0. 
-        assert (IHa1 := (IHa1 n1)).
-        assert (IHa2 := (IHa2 n2)).
+        assert (IHa1 := (IHa1 n1 s)).
+        assert (IHa2 := (IHa2 n2 s)).
         unfold iff in IHa1; destruct IHa1; clear H3.
         unfold iff in IHa2; destruct IHa2; clear H4.
         assert (H5 := (H2 H)).
@@ -147,11 +150,11 @@ Proof.
         rewrite H5; rewrite H6.
         assumption.
       * simpl. intros.
-        assert (IHa1 := (IHa1 (aeval a1))).
-        assert (IHa2 := (IHa2 (aeval a2))).
+        assert (IHa1 := (IHa1 (aeval a1 s) s)).
+        assert (IHa2 := (IHa2 (aeval a2 s) s)).
         unfold iff in IHa1; destruct IHa1; clear H0.
         unfold iff in IHa2. destruct IHa2. clear H0.
-        exists (aeval a1); exists (aeval a2).
+        exists (aeval a1 s); exists (aeval a2 s).
         auto.
 Qed.
 
@@ -159,85 +162,187 @@ Qed.
 Let stack     := list Z.
 
 Inductive Exp : Type :=
-  | Num   : Z -> Exp
+  | Elm   : El -> Exp
   | Pls   : Exp
   | Min   : Exp
   | Mul   : Exp.
 
 Let stack_exp := list Exp.
 
-Fixpoint SPush (n : Z) (st : stack) : stack :=
+Let SPush (n : Z) (st : stack) : stack :=
   cons n st.
 
-Fixpoint SPlus (st : stack) : option stack :=
+Let SPlus (st : stack) : option stack :=
   match st with
-  | nil => None
-  | cons a nil => None
-  | cons a (cons b c) => Some (cons (b+a) c)
+    | nil => None
+    | cons a nil => None
+    | cons a (cons b c) => Some (cons (b+a) c)
   end.
 
-Fixpoint SMinus (st : stack) : option stack :=
+Let SMinus (st : stack) : option stack :=
   match st with
-  | nil => None
-  | cons a nil => None
-  | cons a (cons b c) => Some (cons (b-a) c)
+    | nil => None
+    | cons a nil => None
+    | cons a (cons b c) => Some (cons (b-a) c)
   end.
 
 
-Fixpoint SMult (st : stack) : option stack :=
+Let SMult (st : stack) : option stack :=
   match st with
-  | nil => None
-  | cons a nil => None
-  | cons a (cons b c) => Some (cons (b*a) c)
+    | nil => None
+    | cons a nil => None
+    | cons a (cons b c) => Some (cons (b*a) c)
   end.
+
 (*1*)
-Fixpoint execute (s : stack) (a : aexp) : option Z :=
+Fixpoint execute (s : var -> Z) (st : stack) (a : stack_exp) : option stack :=
   match a with
-  | nil => 
-      match s with
-      | cons e nil => Some e
-      | _ => None
-      end
-  | cons (Num n) a' => execute (SPush n s) a'
+  | nil => Some st
+  | cons (Elm (Num n)) a' => execute s (SPush n st) a'
+  | cons (Elm (Var v)) a' => execute s (SPush (s v) st) a'
   | cons Pls a'     => 
-      match SPlus s with
-      | Some s' => execute s' a'
+      match SPlus st with
+      | Some st' => execute s st' a'
       | None => None
       end
   | cons Min a'     => 
-      match SMinus s with
-      | Some s' => execute s' a'
+      match SMinus st with
+      | Some st' => execute s st' a'
       | None => None
       end
   | cons Mul a'     => 
-      match SMult s with
-      | Some s' => execute s' a'
+      match SMult st with
+      | Some st' => execute s st' a'
       | None => None
       end
   end.
 
+
 (*2*)
 Let stack_machine : stack := nil. 
-Let expression    : aexp  := cons (Num 2) (
-                             cons (Num 3) (
+Let expression    : stack_exp  := cons (Elm(Num 2)) (
+                             cons (Elm(Num 3)) (
                              cons Mul ( 
-                             cons (Num 3) ( 
-                             cons (Num 4) ( 
-                             cons (Num 2) ( 
+                             cons (Elm(Num 3)) ( 
+                             cons (Elm(Num 4)) ( 
+                             cons (Elm(Num 2)) ( 
                              cons Min ( 
                              cons Mul ( 
                              cons Pls ( 
                              nil))))))))).
-Eval compute in execute stack_machine expression.
-
-Fixpoint aeval (a : aexp) : option Z :=
-  execute nil a.
-
-Eval compute in aeval expression.
-
-Eval compute in 10 = 10+2.
+Eval compute in execute init stack_machine expression.
 
 (*3*)
 (*
-    Decidimos usar o option para que saibamos quando realmente deu problema ou    nao.
+    Decidimos usar o option para que saibamos quando realmente deu problema ou nao.
     *)
+
+
+Local Open Scope list.
+
+(****Compilador****)
+Fixpoint compile (a : aexp) : stack_exp := 
+  match a with
+  | Leaf e => cons (Elm e) nil
+  | Node l P r => compile l ++ compile r ++ cons Pls nil
+  | Node l M r => compile l ++ compile r ++ cons Min nil
+  | Node l MM r => compile l ++ compile r ++ cons Mul nil
+  end.
+
+
+Eval compute in execute init nil (compile (([2];*;[3]);+;([3];*;([4];-;[2])))).
+
+Lemma Dinamic_Execute (s : var -> Z) (z : Z) (se1 se2 : stack_exp):
+  forall (st st1 : stack) (s : var -> Z),
+    execute s st se1 = Some (z :: nil) -> 
+    execute s (st ++ st1) (se1 ++ se2) = execute s (e :: st1) se2.
+Proof.
+  induction se1.
+  - simpl.
+    intros.
+    inversion H.
+    simpl.
+    reflexivity.
+  - induction a.
+    + simpl.
+      intros.
+      apply (IHse1 (z0 :: st) st1 s).
+      assumption.
+    + induction st.
+      * intros.
+        simpl in H.
+        inversion H.
+      * induction st.
+        -- intros.
+           simpl in H.
+           inversion H.
+        -- simpl.
+           intros.
+           apply (IHse1 ((a0 + a) :: st) st1).
+           assumption.
+    + induction st.
+      * intros.
+        simpl in H.
+        inversion H.
+      * induction st.
+        -- intros.
+           simpl in H.
+           inversion H.
+        -- simpl.
+           intros.
+           apply (IHse1 ((a0 - a) :: st) st1).
+           assumption.
+    + induction st.
+      * intros.
+        simpl in H.
+        inversion H.
+      * induction st.
+        -- intros.
+           simpl in H.
+           inversion H.
+        -- simpl.
+           intros.
+           apply (IHse1 ((a0 * a) :: st) st1).
+           assumption.
+Qed. 
+(*
+Lemma Dinamic_Execute (z : Z) (se1 se2 : stack_exp):
+  forall (st st1 : stack),
+    execute st se1 = Some (z :: nil) -> 
+    execute (st ++ st1) (se1 ++ se2) = execute (z :: st1) se2.
+      *)
+Theorem Correction : forall (a : aexp),
+                     (execute nil (compile a) = Some (cons (aeval a) nil)).
+Proof.
+  intros.
+  induction a.
+  - simpl. reflexivity.
+  - induction o.
+    + simpl. 
+      assert (H := ((Dinamic_Execute (aeval a1) (compile a1) (compile a2 ++ Pls :: nil) nil nil) IHa1)).
+      assert (H1 := ((Dinamic_Execute (aeval a2) (compile a2) (Pls :: nil) nil (aeval a1 :: nil)) IHa2)).
+      rewrite <- (app_nil_end nil) in H.
+      simpl in H1.
+      rewrite H.
+      rewrite H1.
+      simpl.
+      reflexivity.
+    + simpl. 
+      assert (H := ((Dinamic_Execute (aeval a1) (compile a1) (compile a2 ++ Min :: nil) nil nil) IHa1)).
+      assert (H1 := ((Dinamic_Execute (aeval a2) (compile a2) (Min :: nil) nil (aeval a1 :: nil)) IHa2)).
+      rewrite <- (app_nil_end nil) in H.
+      simpl in H1.
+      rewrite H.
+      rewrite H1.
+      simpl.
+      reflexivity.
+    + simpl. 
+      assert (H := ((Dinamic_Execute (aeval a1) (compile a1) (compile a2 ++ Mul :: nil) nil nil) IHa1)).
+      assert (H1 := ((Dinamic_Execute (aeval a2) (compile a2) (Mul :: nil) nil (aeval a1 :: nil)) IHa2)).
+      rewrite <- (app_nil_end nil) in H.
+      simpl in H1.
+      rewrite H.
+      rewrite H1.
+      simpl.
+      reflexivity.
+Qed.

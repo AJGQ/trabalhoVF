@@ -206,7 +206,7 @@ Eval compute in execute stack_machine expression.
 
 (*3*)
 (*
-    Decidimos usar o option para que saibamos quando realmente deu problema ou    nao.
+    Decidimos usar o option para que saibamos quando realmente deu problema ou nao.
     *)
 
 (****Compilador****)
@@ -217,47 +217,10 @@ Fixpoint compile (a : aexp) : stack_exp :=
   | Node l M r => compile l ++ compile r ++ cons Min nil
   | Node l MM r => compile l ++ compile r ++ cons Mul nil
   end.
-(*
-Fixpoint addSome
 
-Compute Some(1) + Some (2).
-
-Lemma ABC: forall (a1 a2 : aexp), 
-  Some (aeval (a1;+;a2)::nil) = Some (aeval a1 + aeval a2 :: nil).
-Proof.
-  intros.
-  induction a1.
-  - simpl.
-    reflexivity.
-  - induction o.
-    + simpl.
-      reflexivity.
-    + simpl.
-      reflexivity.
-    + simpl.
-      reflexivity.
-Qed.
-Theorem Correction : forall (a: aexp) , 
-  execute nil (compile a) = Some (aeval a :: nil).
-Proof.
-  intros.
-  induction a.
-  - simpl.
-    cbv.
-    reflexivity.
-  - induction o.
-    + simpl. .
-
-
-  *)
 
 Eval compute in execute nil (compile (([2];*;[3]);+;([3];*;([4];-;[2])))).
 
-Let unSome (A : Type) (op : option A) (a : A) : A  := 
-  match op with
-  | Some a' => a'
-  | None    => a
-  end.
 (*
 Lemma Dinamic_Execute_aux (e : Exp) (se : stack_exp) (st st1 : stack) :
     execute st (e :: nil) = Some st1 ->
