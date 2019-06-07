@@ -3,6 +3,14 @@ Require Import List.
 Require Import Classical_Prop.
 Open Scope Z_scope.
 
+From QuickChick Require Import QuickChick.
+Import QcDefaultNotation. Open Scope qc_scope.
+Import GenLow GenHigh.
+Set Warnings "-extraction-opaque-accessed,-extraction".
+
+Require Import mathcomp.ssreflect.ssreflect.
+From mathcomp Require Import seq ssreflect ssrbool ssrnat eqtype.
+
 (****Expressoes sem Variaveis****)
 
 (*1*)
@@ -12,10 +20,43 @@ Inductive Op : Type :=
   | M   : Op
   | MM  : Op.
 
+Check forAll.
+Require Import String. Open Scope string.
+Instance showOp : Show (Op) :=
+  {| show o := 
+      match o with
+      | P => "+"
+      | M => "-"
+      | MM => "*"
+      end
+  |}.
+
+Definition genOp : G Op :=
+  elems [P ; M ; MM].
 
 Inductive aexp :=
   | Leaf : Z -> aexp
   | Node : aexp -> Op -> aexp -> aexp.
+
+Instance showAExp : Show (aexp) :=
+  {| show := 
+      let fix aux a := 
+        match a with
+        | Leaf z => show z
+        | Node l o r => "(" ++ aux l ++ " " ++ show o ++ " " ++ aux r ++ ")"
+        end
+      in aux 
+  |}.
+
+Fixpoint genAExp (sz : nat) (gz : G Z) (go : G Op) :=
+  match sz with
+  | 0%nat => liftGen Leaf gz
+  | S sz' => freq [ (1%nat, liftGen Leaf gz)
+                  ; (sz, liftGen3 Node (genAExp sz' gz go) go (genAExp sz' gz go))
+                  ]
+  end.
+
+Sample (genAExp 3 (choose(0,10)) genOp).
 
 (*2*)
 
@@ -35,7 +76,6 @@ Notation "[ x ]" := (Leaf x).
 End TreeNotations.
 
 Import TreeNotations.
-Open Scope Z.
 
 (*3*)
 
@@ -62,8 +102,25 @@ Fixpoint aevalR (a : aexp) (n : Z) : Prop :=
           exists (n1 n2: Z),  aevalR a1 n1 /\ aevalR a2 n2 /\ n1 * n2 = n
      end
   end.
+
 (*5*)
 
+(*
+Definition RelEqFunP (p : (aexp*Z)) := 
+                    (aevalR (fst p) (snd p)) <-> (aeval (fst p) = (snd p)).
+
+Instance show_aux : Show (aexp*Z) :=
+  {| show p := show (fst p) ++ " " ++ show (snd p)
+  |}.
+
+Search Gen.
+
+Sample (genAExp 3 (choose(0,10)) genOp).
+Check forAll.
+Check (genPair (genAExp 3 (choose(0,10)) genOp) (choose(-1000, 1000))).
+QuickChick  (forAll (genPair (genAExp 3 (choose(0,10)) genOp) (choose(-1000, 1000))) 
+            (RelEqFunP)).
+            *)
 Theorem RelEqFun : forall (a : aexp) (n : Z),
                     (aevalR a n) <-> (aeval a = n).
 Proof.
@@ -190,6 +247,22 @@ Fixpoint execute (s : stack) (a : stack_exp) : option stack :=
       end
   end.
 
+Check Zeq_bool.
+
+Fixpoint stack_eq (st1 st2 : stack) : bool :=
+  match st1, st2 with
+  | nil, nil => true
+  | cons z1 st1', cons z2 st2' => Zeq_bool z1 z2 && stack_eq st1' st2'
+  | _, _ => false
+  end.
+
+Definition option_stack_eq (o1 o2 : option stack) : bool :=
+  match o1, o2 with
+  | None, None => true
+  | Some st1, Some st2 => stack_eq st1 st2
+  | _, _ => false
+  end.
+
 (*2*)
 Let stack_machine : stack := nil. 
 Let expression    : stack_exp  := cons (Num 2) (
@@ -210,6 +283,7 @@ Eval compute in execute stack_machine expression.
     *)
 
 (****Compilador****)
+Open Scope list.
 Fixpoint compile (a : aexp) : stack_exp := 
   match a with
   | Leaf z => cons (Num z) nil
@@ -219,41 +293,15 @@ Fixpoint compile (a : aexp) : stack_exp :=
   end.
 
 
-Eval compute in execute nil (compile (([2];*;[3]);+;([3];*;([4];-;[2])))).
+Definition Correction' (a : aexp) :=
+  option_stack_eq (execute nil (compile a)) (Some (cons (aeval a) nil)).
 
-(*
-Lemma Dinamic_Execute_aux (e : Exp) (se : stack_exp) (st st1 : stack) :
-    execute st (e :: nil) = Some st1 ->
-    execute st (e :: se) = execute st1 se.
-Proof.
-  intros.
-  induction e.
-  - simpl. 
-    inversion H.
-    reflexivity.
-  - induction st.
-    + inversion H.
-    + induction st.
-      * inversion H.
-      * simpl. 
-        inversion H.
-        reflexivity.
-  - induction st.
-    + inversion H.
-    + induction st.
-      * inversion H.
-      * simpl. 
-        inversion H.
-        reflexivity.
-  - induction st.
-    + inversion H.
-    + induction st.
-      * inversion H.
-      * simpl. 
-        inversion H.
-        reflexivity.
-Qed.  
-*)
+Check forAll.
+Sample (genAExp 3 (choose(0,10)) genOp).
+
+QuickChick (forAll (genAExp 3 (choose(0,10)) genOp) Correction').
+
+Eval compute in execute nil (compile (([2];*;[3]);+;([3];*;([4];-;[2])))).
 
 Lemma Dinamic_Execute (z : Z) (se1 se2 : stack_exp):
   forall (st st1 : stack),
@@ -314,6 +362,7 @@ Lemma Dinamic_Execute (z : Z) (se1 se2 : stack_exp):
     execute st se1 = Some (z :: nil) -> 
     execute (st ++ st1) (se1 ++ se2) = execute (z :: st1) se2.
       *)
+
 Theorem Correction : forall (a : aexp),
                      (execute nil (compile a) = Some (cons (aeval a) nil)).
 Proof.
@@ -349,28 +398,3 @@ Proof.
       simpl.
       reflexivity.
 Qed.
-
-(*
-Theorem Correction : forall (a : aexp), exists (z1 z2 : option stack) , z1 = execute nil (compile a) -> z2 = Some (cons (aeval a) nil) -> z1 = z2.
-Proof.
-induction a.
-- simpl.
-  exists (Some (z :: nil)).
-  exists (Some (z :: nil)).
-  intros.
-  reflexivity.
-- induction o.
-  + exists (execute nil (compile (a1; + ; a2))).
-    exists (execute nil (compile (a1; + ; a2))).
-    intros.
-    reflexivity.
-  + exists (execute nil (compile (a1; - ; a2))).
-    exists (execute nil (compile (a1; - ; a2))).
-    intros.
-    reflexivity.
-  + exists (execute nil (compile (a1; * ; a2))).
-    exists (execute nil (compile (a1; * ; a2))).
-    intros.
-    reflexivity.
-Qed.
-*)

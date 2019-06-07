@@ -1,7 +1,6 @@
 Require Import ZArith. 
 Require Import List.
 Require Import String.
-Require Import Ascii.
 
 Open Scope Z_scope.
 Delimit Scope string_scope with string.
@@ -26,9 +25,10 @@ Inductive aexp :=
   | Leaf : El -> aexp
   | Node : aexp -> Op -> aexp -> aexp.
 
-Let init : var -> Z := fun _ => 0.
+Let state := var -> Z.
+Let init : state := fun _ => 0.
 
-Let update (s : var -> Z) (v : var) (z : Z) : var -> Z :=
+Let update (s : state) (v : var) (z : Z) : state :=
   fun x => if (string_dec x v)%string then z else s x.
 (*2*)
 
@@ -37,7 +37,7 @@ Eval compute in init "x".
 Eval compute in update init "x" 3 "x".
 Eval compute in update init "x" 3 "y".
 
-Fixpoint aeval (a : aexp) (s : var -> Z) : Z :=
+Fixpoint aeval (a : aexp) (s : state) : Z :=
     match a with
     | Leaf (Num n) => n
     | Leaf (Var n) => s n
@@ -71,7 +71,7 @@ Eval compute in aeval (([20];-;[40]);*;([30];+;([["x"]];*;[["x"]]))) (update ini
 
 (*4*)
 
-Fixpoint aevalR (a : aexp) (n : Z) (s : var -> Z) : Prop :=
+Fixpoint aevalR (a : aexp) (n : Z) (s : state) : Prop :=
   match a with
   | Leaf (Num z) => z = n 
   | Leaf (Var v)  => s v = n 
@@ -87,7 +87,7 @@ Fixpoint aevalR (a : aexp) (n : Z) (s : var -> Z) : Prop :=
   end.
 (*5*)
 
-Theorem RelEqFun : forall (a : aexp) (n : Z) (s : var -> Z),
+Theorem RelEqFun : forall (a : aexp) (n : Z) (s : state),
                     (aevalR a n s) <-> (aeval a s = n).
 Proof.
   induction a.
@@ -169,17 +169,20 @@ Inductive Exp : Type :=
 
 Let stack_exp := list Exp.
 
-Let SPush (n : Z) (st : stack) : stack :=
+Definition SPush (n : Z) (st : stack) : stack :=
   cons n st.
 
-Let SPlus (st : stack) : option stack :=
+Definition SLoad (x : var) (st : stack) (s : state) : stack :=
+  cons (s x) st. 
+
+Definition SPlus (st : stack) : option stack :=
   match st with
     | nil => None
     | cons a nil => None
     | cons a (cons b c) => Some (cons (b+a) c)
   end.
 
-Let SMinus (st : stack) : option stack :=
+Definition SMinus (st : stack) : option stack :=
   match st with
     | nil => None
     | cons a nil => None
@@ -187,7 +190,7 @@ Let SMinus (st : stack) : option stack :=
   end.
 
 
-Let SMult (st : stack) : option stack :=
+Definition SMult (st : stack) : option stack :=
   match st with
     | nil => None
     | cons a nil => None
@@ -195,11 +198,11 @@ Let SMult (st : stack) : option stack :=
   end.
 
 (*1*)
-Fixpoint execute (s : var -> Z) (st : stack) (a : stack_exp) : option stack :=
+Fixpoint execute (s : state) (st : stack) (a : stack_exp) : option stack :=
   match a with
   | nil => Some st
   | cons (Elm (Num n)) a' => execute s (SPush n st) a'
-  | cons (Elm (Var v)) a' => execute s (SPush (s v) st) a'
+  | cons (Elm (Var v)) a' => execute s (SLoad v st s) a'
   | cons Pls a'     => 
       match SPlus st with
       | Some st' => execute s st' a'
@@ -252,10 +255,10 @@ Fixpoint compile (a : aexp) : stack_exp :=
 
 Eval compute in execute init nil (compile (([2];*;[3]);+;([3];*;([4];-;[2])))).
 
-Lemma Dinamic_Execute (s : var -> Z) (z : Z) (se1 se2 : stack_exp):
-  forall (st st1 : stack) (s : var -> Z),
+Lemma Dinamic_Execute (z : Z) (se1 se2 : stack_exp) :
+  forall (st st1 : stack) (s : state),
     execute s st se1 = Some (z :: nil) -> 
-    execute s (st ++ st1) (se1 ++ se2) = execute s (e :: st1) se2.
+    execute s (st ++ st1) (se1 ++ se2) = execute s (z :: st1) se2.
 Proof.
   induction se1.
   - simpl.
@@ -263,10 +266,14 @@ Proof.
     inversion H.
     simpl.
     reflexivity.
-  - induction a.
+  - induction a. induction e.
     + simpl.
       intros.
       apply (IHse1 (z0 :: st) st1 s).
+      assumption.
+    + simpl.
+      intros.
+      apply (IHse1 ((s v) :: st) st1 s).
       assumption.
     + induction st.
       * intros.
@@ -311,16 +318,17 @@ Lemma Dinamic_Execute (z : Z) (se1 se2 : stack_exp):
     execute st se1 = Some (z :: nil) -> 
     execute (st ++ st1) (se1 ++ se2) = execute (z :: st1) se2.
       *)
-Theorem Correction : forall (a : aexp),
-                     (execute nil (compile a) = Some (cons (aeval a) nil)).
+Theorem Correction : forall (a : aexp) (s : state),
+                     (execute s nil (compile a) = Some (cons (aeval a s) nil)).
 Proof.
   intros.
-  induction a.
+  induction a. induction e.
+  - simpl. reflexivity.
   - simpl. reflexivity.
   - induction o.
     + simpl. 
-      assert (H := ((Dinamic_Execute (aeval a1) (compile a1) (compile a2 ++ Pls :: nil) nil nil) IHa1)).
-      assert (H1 := ((Dinamic_Execute (aeval a2) (compile a2) (Pls :: nil) nil (aeval a1 :: nil)) IHa2)).
+      assert (H := ((Dinamic_Execute (aeval a1 s) (compile a1) (compile a2 ++ Pls :: nil) nil nil s) IHa1)).
+      assert (H1 := ((Dinamic_Execute (aeval a2 s) (compile a2) (Pls :: nil) nil (aeval a1 s :: nil) s) IHa2)).
       rewrite <- (app_nil_end nil) in H.
       simpl in H1.
       rewrite H.
@@ -328,8 +336,8 @@ Proof.
       simpl.
       reflexivity.
     + simpl. 
-      assert (H := ((Dinamic_Execute (aeval a1) (compile a1) (compile a2 ++ Min :: nil) nil nil) IHa1)).
-      assert (H1 := ((Dinamic_Execute (aeval a2) (compile a2) (Min :: nil) nil (aeval a1 :: nil)) IHa2)).
+      assert (H := ((Dinamic_Execute (aeval a1 s) (compile a1) (compile a2 ++ Min :: nil) nil nil s) IHa1)).
+      assert (H1 := ((Dinamic_Execute (aeval a2 s) (compile a2) (Min :: nil) nil (aeval a1 s :: nil) s) IHa2)).
       rewrite <- (app_nil_end nil) in H.
       simpl in H1.
       rewrite H.
@@ -337,8 +345,8 @@ Proof.
       simpl.
       reflexivity.
     + simpl. 
-      assert (H := ((Dinamic_Execute (aeval a1) (compile a1) (compile a2 ++ Mul :: nil) nil nil) IHa1)).
-      assert (H1 := ((Dinamic_Execute (aeval a2) (compile a2) (Mul :: nil) nil (aeval a1 :: nil)) IHa2)).
+      assert (H := ((Dinamic_Execute (aeval a1 s) (compile a1) (compile a2 ++ Mul :: nil) nil nil s) IHa1)).
+      assert (H1 := ((Dinamic_Execute (aeval a2 s) (compile a2) (Mul :: nil) nil (aeval a1 s :: nil) s) IHa2)).
       rewrite <- (app_nil_end nil) in H.
       simpl in H1.
       rewrite H.
