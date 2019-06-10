@@ -56,9 +56,7 @@ Fixpoint genAExp (sz : nat) (gz : G Z) (go : G Op) :=
                   ]
   end.
 
-(*
 Sample (genAExp 3 (choose(0,10)) genOp).
-*)
 
 (*2*)
 
@@ -249,6 +247,7 @@ Let expression    : stack_exp  := [Num 2; Num 3; Mul; Num 3; Num 4; Num 2; Min; 
 Eval compute in execute stack_machine expression.
 
 (*3*)
+
 (*
     Decidimos usar o option para saber se houve problema.
     *)
@@ -267,11 +266,11 @@ Fixpoint compile (a : aexp) : stack_exp :=
 Definition Correction' (a : aexp) :=
   option_stack_eq (execute nil (compile a)) (Some (cons (aeval a) nil)).
 
-(*
+
 Check forAll.
 Sample (genAExp 3 (choose(0,10)) genOp).
 QuickChick (forAll (genAExp 3 (choose(0,10)) genOp) Correction').
-*)
+
 
 
 (*2*)
