@@ -246,7 +246,7 @@ Eval compute in execute stack_machine expression.
 
 (*3*)
 (*
-    Decidimos usar o option para saber quando dá problema.
+    Decidimos usar o option para saber se houve problema.
     *)
 
 (****Compilador****)
