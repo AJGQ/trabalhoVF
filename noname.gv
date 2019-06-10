@@ -1,0 +1,15 @@
+digraph G {
+	//graph [layout=dot rankdir=UD]
+
+    a [label="*"];
+    b [label="*"];
+    "+" -> {a b};
+    e [label=2];
+    c [label=3];
+    a -> {e c};
+    d [label=3];
+    b -> {d "-"};
+    "-" -> 4;
+    f [label=2];
+    "-" -> f;
+}
