@@ -125,7 +125,7 @@ Proof.
         unfold iff in IHa2. destruct IHa2. clear H0.
         exists (aeval a1 s); exists (aeval a2 s).
         auto 4.
-(***)
+(*______________________________________________________________________________________________________________*)
     + split.
       * simpl; intros. 
         destruct H as [n1 H];destruct H as [n2 H].  
