@@ -235,7 +235,7 @@ Eval compute in execute init stack_machine expression.
 
 (*3*)
 (*
-    Decidimos usar o option para que saibamos quando realmente deu problema ou nao.
+    Decidimos usar o option para saber se houve problema.
     *)
 
 
