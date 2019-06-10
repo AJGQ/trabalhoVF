@@ -322,7 +322,7 @@ Proof.
   intros.
   induction a. induction e.
   - simpl. reflexivity.
-  - simpl. reflexivity.
+  - simpl; reflexivity.
   - induction o.
     + simpl. 
       assert (H := ((Dinamic_Execute (aeval a1 s) (compile a1) (compile a2 ++ Pls :: nil) nil nil s) IHa1)).
@@ -337,18 +337,10 @@ Proof.
       assert (H := ((Dinamic_Execute (aeval a1 s) (compile a1) (compile a2 ++ Min :: nil) nil nil s) IHa1)).
       assert (H1 := ((Dinamic_Execute (aeval a2 s) (compile a2) (Min :: nil) nil (aeval a1 s :: nil) s) IHa2)).
       rewrite <- (app_nil_end nil) in H.
-      simpl in H1.
-      rewrite H.
-      rewrite H1.
-      simpl.
-      reflexivity.
+      simpl in H1;rewrite H;rewrite H1;simpl;reflexivity.
     + simpl. 
       assert (H := ((Dinamic_Execute (aeval a1 s) (compile a1) (compile a2 ++ Mul :: nil) nil nil s) IHa1)).
       assert (H1 := ((Dinamic_Execute (aeval a2 s) (compile a2) (Mul :: nil) nil (aeval a1 s :: nil) s) IHa2)).
       rewrite <- (app_nil_end nil) in H.
-      simpl in H1.
-      rewrite H.
-      rewrite H1.
-      simpl.
-      reflexivity.
+      simpl in H1;rewrite H;rewrite H1;simpl;reflexivity.
 Qed.
